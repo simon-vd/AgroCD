@@ -122,6 +122,13 @@ spec:
           envFrom:
             - secretRef:
                 name: db-secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
           volumeMounts:
             - name: db-init
               mountPath: /docker-entrypoint-initdb.d
