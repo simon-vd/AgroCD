@@ -1,0 +1,65 @@
+recources I need to use:
+lighttpd	FastAPI OR NodeJS	MariaDB
+use kind as k8s
+host is a windows 11 laptop
+to use kind = ./kind …
+My initials are "SVD"
+best practice = kind deployment, not pods
+cursus (might be usefull)
+
+
+
+Create your own Kubernetes cluster and deploy the webstack which is assigned to you in this document 
+
+
+Set up a web application stack consisting of 3 containers:
+
+    A web frontend, serving a javascript web page (js code is provided to you 
+
+    Koppelingen naar een externe site.)
+        When  layout of webpage changes, the worker will display the new layout (automatically, or after an image rebuild)
+
+    A FastAPI 
+
+    Koppelingen naar een externe site. or Node.js service with
+        an API endpoint that gets your name
+        an API endpoint that gets the container ID
+        When the name changes in DB, webpage changes automatically (after a refresh)
+
+    A backend database that stores the name
+
+Points:
+    10/20 - kind or microk8s or minikube cluster with 1 worker that runs your stack
+
+Plus EXTRA POINTS
+
+    Enable HTTPS on k8s using a valid, public certificate (use cert-manager 
+
+    Koppelingen naar een externe site.)  ->  +2 points
+
+    Extra worker in your k8s cluster + scaling of API across nodes using ingress (show container id on frontend)  -> +1 point
+    Health check monitoring your API that restarts automatically when unhealthy -> +1 point
+    Monitor your cluster resources and performance using Prometheus 
+
+    Koppelingen naar een externe site. -> +2 point
+    Add an extra -> +4 points
+
+        Set up a Kubeadm cluster with 2 workers and 1 controller node, running and load balancing your stack.
+        OR
+
+        Use a Helm Chart to set up ArgoCD 
+
+        Koppelingen naar een externe site. on your k8s cluster and implement a GitOps workflow to deploy your app automatically.
+
+The rules:
+
+    Don’t change or add anything after the deadline. You will show us the things that you have documented during the evaluation!
+
+    Don’t copy each others document, we will use Turnitin to check for plagiarism.
+
+    Use your initials for image, container names etc..
+
+    Your document has a nice, professional layout and a proper introduction and conclusion.
+
+    Document every step and command you enter to accomplish this. Use readable screenshots. Explain every parameter and option inside the commands as well. What does it do and why are you using it?
+    Show your configuration files and explain all important lines.
