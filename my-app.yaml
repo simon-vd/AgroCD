@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: "https://github.com/simon-vd/AgroCD.git"
     targetRevision: HEAD
-    path: K8s
+    path: .
   destination:
     server: "https://kubernetes.default.svc"
     namespace: svd
