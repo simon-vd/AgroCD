@@ -1,5 +1,3 @@
-# database.yaml
----
 # 1. Secret (passwords)
 apiVersion: v1
 kind: Secret

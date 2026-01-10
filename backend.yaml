@@ -1,5 +1,3 @@
-# backend.yaml
----
 # 7. FastAPI Deployment + Service (with health check)
 apiVersion: apps/v1
 kind: Deployment
