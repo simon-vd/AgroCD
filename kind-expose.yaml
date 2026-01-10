@@ -3,8 +3,6 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
     extraPortMappings:
-      - containerPort: 30090
-        hostPort: 30090
       - containerPort: 30900 # Prometheus
         hostPort: 30900
       - containerPort: 31740 # HTTPS

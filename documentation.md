@@ -1,96 +1,102 @@
 # Simon Van Dessel webstack on a Kubernetes cluster
 
 ## Introduction
+
 This documentation provides a comprehensive overview of the Kubernetes-based infrastructure designed for this project. The primary goal of this architecture is to create a robust, scalable, and fully automated environment that bridges the gap between local development and production-grade orchestration. By using modern DevOps principles, this stack ensures that every component is reproducible, documented, and managed through code.
 
 The infrastructure uses a selection of modern tools to handle cluster management, traffic routing, security, and continuous delivery:
 
-*   **Kind (Kubernetes in Docker)**: This is the foundation of the setup. It allows us to run a real Kubernetes cluster inside Docker on a local computer, making it easy to build and test our environment without needing a cloud provider.
-*   **Traefik**: This acts as the gateway for all incoming traffic. It directs web requests to the correct applications inside the cluster and handles load balancing to ensure everything stays responsive.
-*   **Cert-Manager**: This tool manages security certificates. It automatically handles the creation and renewal of SSL certificates, ensuring that all connections to our services are encrypted and secure (HTTPS).
-*   **Argo CD**: This is the deployment manager. It uses a "GitOps" approach, which means it constantly checks our code repository and automatically updates the cluster to match our configuration files.
-*   **lighttpd**: A lightweight, high-performance web server designed for speed-critical environments, used to serve static assets with minimal resource consumption.
-*   **NodeJS**: The backend runtime environment that executes JavaScript code, handling the core business logic and providing a scalable API for the frontend.
-*   **MariaDB**: The relational database management system used for persistent data storage, ensuring that all application data is stored securely and remains highly available.
-*   **Prometheus**: An open-source monitoring and alerting toolkit designed for reliability and scalability, used to collect and store metrics from the cluster and applications.
-
-
+* **Kind (Kubernetes in Docker)**: This is the foundation of the setup. It allows us to run a real Kubernetes cluster inside Docker on a local computer, making it easy to build and test our environment without needing a cloud provider.
+* **Traefik**: This acts as the gateway for all incoming traffic. It directs web requests to the correct applications inside the cluster and handles load balancing to ensure everything stays responsive.
+* **Cert-Manager**: This tool manages security certificates. It automatically handles the creation and renewal of SSL certificates, ensuring that all connections to our services are encrypted and secure (HTTPS).
+* **Argo CD**: This is the deployment manager. It uses a "GitOps" approach, which means it constantly checks our code repository and automatically updates the cluster to match our configuration files.
+* **lighttpd**: A lightweight, high-performance web server designed for speed-critical environments, used to serve static assets with minimal resource consumption.
+* **NodeJS**: The backend runtime environment that executes JavaScript code, handling the core business logic and providing a scalable API for the frontend.
+* **MariaDB**: The relational database management system used for persistent data storage, ensuring that all application data is stored securely and remains highly available.
+* **Prometheus**: An open-source monitoring and alerting toolkit designed for reliability and scalability, used to collect and store metrics from the cluster and applications.
 
 ---
+
 ## Quick Start Guide
 
 To set up the infrastructure and deploy the application, follow these steps in order:
 
-1.  **Initialize the Kind Cluster**:
-    Create the cluster and load the application images:
-    ```bash
-    kind delete cluster --name svd
-    kind create cluster --name svd --config kind-expose.yaml
-    kind load docker-image r1035222/ms2_frontend:latest r1035222/ms2_backend:latest --name svd
-    ```
+1. **Initialize the Kind Cluster**:
+   Create the cluster and load the application images:
 
-2.  **Install Infrastructure via Helm**:
-    Update repositories and install the ingress controller, cert-manager, monitoring stack, and Argo CD:
-    ```bash
-    helm repo update
+   ```bash
+   kind delete cluster --name svd
+   kind create cluster --name svd --config kind-expose.yaml
+   kind load docker-image r1035222/ms2_frontend:latest r1035222/ms2_backend:latest --name svd
+   ```
+2. **Install Infrastructure via Helm**:
+   Update repositories and install the ingress controller, cert-manager, monitoring stack, and Argo CD:
 
-    helm install cert-manager jetstack/cert-manager \
-      -n cert-manager --create-namespace \
-      --set installCRDs=true
+   ```bash
+   helm repo update
 
-    helm install traefik traefik/traefik \
-      -n traefik --create-namespace \
-      --set ports.web.nodePort=30090 \
-      --set ports.websecure.nodePort=31740 \
-      --set service.type=NodePort
+   helm install cert-manager jetstack/cert-manager \
+     -n cert-manager --create-namespace \
+     --set installCRDs=true
 
-    helm install prometheus prometheus-community/kube-prometheus-stack \
-      --namespace monitoring --create-namespace \
-      --set prometheus.service.type=NodePort \
-      --set prometheus
+   helm install traefik traefik/traefik \
+     -n traefik --create-namespace \
+     --set ports.web.nodePort=30090 \
+     --set ports.websecure.nodePort=31740 \
+     --set service.type=NodePort
 
-3.  **Apply Application Manifests**:
-    Deploy the application components and GitOps configuration:
-    ```bash
-    kubectl apply -f clusterissuer.yaml
-    kubectl apply -f namespace.yaml
-    kubectl apply -f backend.yaml
-    kubectl apply -f frontend.yaml
-    kubectl apply -f database.yaml
-    kubectl apply -f ingress.yaml
-    kubectl apply -f argo-cd.yaml
-    ```
+   helm install prometheus prometheus-community/kube-prometheus-stack \
+     --namespace monitoring --create-namespace \
+     --set prometheus.service.type=NodePort \
+     --set prometheus
 
-4.  **Finalize and Access**:
-    Wait for the Argo CD server to be ready and retrieve the initial admin password:
-    ```bash
-    kubectl -n argocd wait --for=condition=Ready pod -l app.kubernetes.io/name=argocd-server --timeout=120s
+   ```
+3. **Apply Application Manifests**:
+   Deploy the application components and GitOps configuration:
 
-    # Retrieve Argo CD password (PowerShell)
-    [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String((kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}")))
-    ```
+   ```bash
+   kubectl apply -f clusterissuer.yaml
+   kubectl apply -f namespace.yaml
+   kubectl apply -f backend.yaml
+   kubectl apply -f frontend.yaml
+   kubectl apply -f database.yaml
+   kubectl apply -f ingress.yaml
+   kubectl apply -f argo-cd.yaml
+   ```
+4. **Finalize and Access**:
+   Wait for the Argo CD server to be ready and retrieve the initial admin password:
 
-    *Prometheus RAM Usage Query:* `100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))`
+   ```bash
+   kubectl -n argocd wait --for=condition=Ready pod -l app.kubernetes.io/name=argocd-server --timeout=120s
+
+   # Retrieve Argo CD password (PowerShell)
+   [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String((kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}")))
+   ```
+
+   *Prometheus RAM Usage Query:* `100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))`
 
 ---
+
 ## Accessing the Dashboards
 
 Once the installation is complete, you can access the main application and management tools via the following endpoints:
 
-| Service | Access URL | Description |
-| :--- | :--- | :--- |
-| **Main Application** | [https://milestone2.example.com:31740](https://milestone2.example.com:31740/) | Primary project landing page |
-| **Prometheus** | [https://milestone2.example.com:30900](https://milestone2.example.com:30900) | Monitoring and metrics dashboard |
-| **Argo CD** | [https://milestone2.example.com:30890](https://milestone2.example.com:30890) | GitOps synchronization and delivery |
+| Service                    | Access URL                                                                 | Description                         |
+| :------------------------- | :------------------------------------------------------------------------- | :---------------------------------- |
+| **Main Application** | [https://milestone2.example.com:31740](https://milestone2.example.com:31740/) | Primary project landing page        |
+| **Prometheus**       | [https://milestone2.example.com:30900](https://milestone2.example.com:30900)  | Monitoring and metrics dashboard    |
+| **Argo CD**          | [https://milestone2.example.com:30890](https://milestone2.example.com:30890)  | GitOps synchronization and delivery |
 
 ---
 
 ### 📈 Prometheus
+
 Prometheus is the monitoring and alerting toolkit used to collect and store metrics from your applications and infrastructure. It provides a powerful query language (PromQL) to visualize time-series data, helping you monitor the health and performance of your cluster.
 
 ![Prometheus Dashboard](./prom.png)
 
 ### 🐙 Argo CD
+
 Argo CD is the GitOps tool used to maintain the desired state of your applications. It monitors your Git repositories for changes and automatically synchronizes them with the cluster. The dashboard provides a visual representation of application health, resource trees, and synchronization history.
 
 ![Argo CD Dashboard](./argocd.png)
@@ -98,6 +104,7 @@ Argo CD is the GitOps tool used to maintain the desired state of your applicatio
 ---
 
 ## 1. Kind Cluster Configuration (`kind-expose.yaml`)
+
 The foundation of the setup is a Kind cluster that maps specific ports from your local machine into the Kubernetes control plane.
 
 ```yaml
@@ -106,8 +113,6 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
     extraPortMappings:
-      - containerPort: 30090
-        hostPort: 30090
       - containerPort: 30900 # Prometheus
         hostPort: 30900
       - containerPort: 31740 # HTTPS
@@ -119,25 +124,25 @@ nodes:
 ```
 
 ### Line-by-line explanation:
-**Cluster Basics**
-- `kind: Cluster` - Defines that this file is a Kind cluster configuration.
-- `apiVersion: kind.x-k8s.io/v1alpha4` - Specifies the Kind configuration API version.
-- `nodes:` - List of nodes to be created in the cluster.
 
-**Control Plane & Port Mapping**
-- `- role: control-plane` - Defines the first node as the control plane.
-- `extraPortMappings:` - Opens ports on the Docker container running the node to the host (Windows).
-- `- containerPort: 30090 / hostPort: 30090` - Maps port 30090 (used by Traefik HTTP) to your machine.
-- `- containerPort: 30900 / hostPort: 30900` - Maps port 30900 (Prometheus metrics) to your machine.
-- `- containerPort: 31740 / hostPort: 31740` - Maps port 31740 (used by Traefik HTTPS/TLS) to your machine.
-- `- containerPort: 30890 / hostPort: 30890` - Maps port 30890 (Argo CD UI) to your machine.
-
-**Worker Nodes**
-- `- role: worker` - Adds a worker node to the cluster for scaling and distribution. Having multiple workers allows for testing high availability and pod distribution.
+- `kind: Cluster`: Specifies that the resource being defined is a Cluster.
+- `apiVersion: kind.x-k8s.io/v1alpha4`: Defines the specific API version for the Kind cluster configuration.
+- `nodes:`: Begins the list of nodes that will make up this cluster.
+- `- role: control-plane`: Configures the first node to act as the control plane (master).
+- `extraPortMappings:`: Starts the list of extra port mappings from the container to the host.
+- `- containerPort: 30900`: The port listening inside the container (Prometheus).
+- `hostPort: 30900`: The port exposed on the host machine.
+- `- containerPort: 31740`: The port listening inside the container (Traefik HTTPS).
+- `hostPort: 31740`: The port exposed on the host machine.
+- `- containerPort: 30890`: The port listening inside the container (Argo CD).
+- `hostPort: 30890`: The port exposed on the host machine.
+- `- role: worker`: Adds a worker node to the cluster.
+- `- role: worker`: Adds a second worker node.
 
 ---
 
 ## 2. Namespace Definition (`namespace.yaml`)
+
 Used to create a logical isolation for all our application resources.
 
 ```yaml
@@ -148,13 +153,16 @@ metadata:
 ```
 
 ### Line-by-line explanation:
-- `apiVersion: v1` - Uses the core Kubernetes API.
-- `kind: Namespace` - Defines the resource type as a Namespace.
-- `metadata.name: svd` - Names the namespace "svd". All subsequent resources will live here.
+
+- `apiVersion: v1`: Uses the core Kubernetes API version.
+- `kind: Namespace`: Specifies that the resource type is a Namespace.
+- `metadata:`: Section for resource metadata.
+- `name: svd`: The name of the namespace. All subsequent resources will created in this namespace.
 
 ---
 
 ## 3. Database Layer (`database.yaml`)
+
 This file makes the MariaDB database, including its credentials, initialization scripts, and persistent storage.
 
 ```yaml
@@ -254,51 +262,111 @@ spec:
 ### Detailed Line-by-Line Explanation:
 
 #### 1. Database Secret (`db-secret`)
-This resource securely stores the credentials required for the database to function and for the API to connect.
+
 - `apiVersion: v1`: Uses the base Kubernetes API version.
-- `kind: Secret`: Identifies this as a tool for storing sensitive information.
-- `metadata.name: db-secret`: The unique name for this secret within the namespace.
-- `metadata.namespace: svd`: Places the secret in the "svd" namespace.
-- `type: Opaque`: Indicates the secret contains arbitrary data (the most common type).
-- `stringData`: Allows us to write secrets in plain text; Kubernetes will automatically Base64-encode them for us.
-  - `DB_HOST`: The internal cluster address for the database.
-  - `DB_USER/PASSWORD`: Credentials used by the Application to connect.
-  - `MYSQL_ROOT_PASSWORD`: The administrative password for the MariaDB engine.
-  - `MYSQL_DATABASE`: The name of the specific database to be created on startup.
+- `kind: Secret`: Identifies this resource as a Secret for storing sensitive data.
+- `metadata:`: Metadata section for the Secret.
+- `name: db-secret`: The unique name for this secret.
+- `namespace: svd`: Specifies the namespace where this secret resides.
+- `type: Opaque`: Indicates the secret contains arbitrary data.
+- `stringData:`: Allows defining secret data as plain strings (automatically Base64-encoded).
+- `DB_HOST: "mariadb"`: The hostname for the database connection.
+- `DB_USER: "svduser"`: The username for the application to access the database.
+- `DB_PASSWORD: "svdpass"`: The password for the application user.
+- `DB_DATABASE: "svddb"`: The name of the database to connect to.
+- `MYSQL_ROOT_PASSWORD: "svdroot"`: The password for the root user of MariaDB.
+- `MYSQL_DATABASE: "svddb"`: The name of the database to be created at initialization.
+- `MYSQL_USER: "svduser"`: The username to be created at initialization.
+- `MYSQL_PASSWORD: "svdpass"`: The password for the created user.
 
 #### 2. Init Script ConfigMap (`db-init`)
-- `kind: ConfigMap`: Used for non-sensitive configuration data.
-- `data.init.sql: |`: The `|` symbol allows for a multi-line string. This SQL script is executed automatically when the database starts for the first time.
-  - `CREATE TABLE IF NOT EXISTS names...`: Ensures the database structure is ready.
-  - `INSERT INTO names...`: Populates the database with initial data (your name).
+
+- `apiVersion: v1`: Uses the base Kubernetes API version.
+- `kind: ConfigMap`: Identifies this resource as a ConfigMap.
+- `metadata:`: Metadata section.
+- `name: db-init`: The name of this ConfigMap.
+- `namespace: svd`: The namespace for this resource.
+- `data:`: The data section containing the configuration keys and values.
+- `init.sql: |`: The key `init.sql` containing a multi-line string (indicated by `|`).
+- `CREATE TABLE IF NOT EXISTS names (name VARCHAR(255));`: SQL command to create the table.
+- `INSERT INTO names (name) VALUES ('Simon Van Dessel');`: SQL command to insert initial data.
 
 #### 3. Persistent Storage (`mariadb-pvc`)
-- `kind: PersistentVolumeClaim`: A request for storage that lives independently of the Pod. If the Pod crashes, the data stays safe.
-- `spec.accessModes: ["ReadWriteOnce"]`: The volume can be mounted for reading and writing by exactly one node at a time.
-- `resources.requests.storage: 2Gi`: Reserves 2 Gigabytes of disk space.
+
+- `apiVersion: v1`: Uses the base Kubernetes API version.
+- `kind: PersistentVolumeClaim`: Identifies this resource as a request for storage.
+- `metadata:`: Metadata section.
+- `name: mariadb-pvc`: The name of this claim.
+- `namespace: svd`: The namespace for this resource.
+- `spec:`: Specification of the desired storage.
+- `accessModes: ["ReadWriteOnce"]`: The volume can be mounted as read-write by a single node.
+- `resources:`: Resource requirements for the storage.
+- `requests:`: The minimum resources required.
+- `storage: 2Gi`: Requests 2 Gigabytes of storage.
 
 #### 4. MariaDB Deployment
-- `kind: Deployment`: Manages the lifecycle of the database container.
-- `spec.replicas: 1`: We only run one database instance to avoid data synchronization conflicts.
-- `spec.selector.matchLabels`: Tells the Deployment which Pods it is responsible for managing.
-- `template.spec.containers`: The actual definition of the MariaDB engine.
-  - `image: mariadb:10.5`: The specific version of the MariaDB image to use.
-  - `ports.containerPort: 3306`: The port the database listens on inside its container.
-  - `envFrom.secretRef`: This is a powerful shortcut. It takes every key-value pair inside `db-secret` and injects them as environment variables into the container.
-  - `resources`: Defines `requests` (guaranteed resources) and `limits` (maximum allowed resources) to prevent the database from consuming the entire host machine's power.
-  - `volumeMounts`: Maps our "Volumes" to specific paths inside the container:
-    - `/docker-entrypoint-initdb.d`: A special MariaDB folder. Any SQL scripts found here are executed at startup.
-    - `/var/lib/mysql`: The standard path where MariaDB stores its actual data files. By mounting our PVC here, the data survives Pod restarts.
+
+- `apiVersion: apps/v1`: Uses the apps API version for Deployments.
+- `kind: Deployment`: Identifies this resource as a Deployment.
+- `metadata:`: Metadata for the Deployment.
+- `name: mariadb`: The name of the Deployment.
+- `namespace: svd`: The namespace for the Deployment.
+- `spec:`: Specification of the Deployment.
+- `replicas: 1`: Specifies that 1 pod should be running.
+- `selector:`: Defines how the Deployment finds which Pods to manage.
+- `matchLabels:`: The labels that must match.
+- `app: mariadb`: The label key-value pair to match.
+- `template:`: The template used to create new Pods.
+- `metadata:`: Metadata for the created Pods.
+- `labels:`: Labels attached to the Pods.
+- `app: mariadb`: The label identifying the app as mariadb.
+- `spec:`: Specification of the Pod contents.
+- `containers:`: List of containers in the Pod.
+- `- name: mariadb`: The name of the container.
+- `image: mariadb:10.5`: The Docker image to use.
+- `ports:`: List of ports to expose from the container.
+- `- containerPort: 3306`: The internal port number.
+- `envFrom:`: Defines references to environment variables.
+- `- secretRef:`: References a Secret to populate env vars.
+- `name: db-secret`: The name of the Secret to use.
+- `resources:`: Compute resource requirements.
+- `requests:`: Guaranteed resources.
+- `memory: "256Mi"`: Requests 256 MiB of memory.
+- `cpu: "100m"`: Requests 100 millicores of CPU.
+- `limits:`: Maximum allowed resources.
+- `memory: "512Mi"`: Limits memory usage to 512 MiB.
+- `cpu: "500m"`: Limits CPU usage to 500 millicores.
+- `volumeMounts:`: Filesystems to be mounted into the container.
+- `- name: db-init`: The name of the volume to mount.
+- `mountPath: /docker-entrypoint-initdb.d`: The path where the volume is mounted.
+- `- name: db-storage`: The name of the volume to mount.
+- `mountPath: /var/lib/mysql`: The path where the volume is mounted.
+- `volumes:`: List of volumes available to the Pod.
+- `- name: db-init`: Defines the volume named 'db-init'.
+- `configMap:`: The volume is backed by a ConfigMap.
+- `name: db-init`: The name of the ConfigMap.
+- `- name: db-storage`: Defines the volume named 'db-storage'.
+- `persistentVolumeClaim:`: The volume is backed by a PVC.
+- `claimName: mariadb-pvc`: The name of the PVC to use.
 
 #### 5. Database Service
-- `kind: Service`: Creates a stable network endpoint.
-- `spec.ports.port: 3306`: The port that other apps inside the cluster will use to talk to the database.
-- `spec.targetPort: 3306`: Routes traffic from the Service port to the actual Pod port.
-- `spec.selector.app: mariadb`: Links the service to any Pod labeled with `app: mariadb`.
+
+- `apiVersion: v1`: Uses the base Kubernetes API version.
+- `kind: Service`: Identifies this resource as a Service.
+- `metadata:`: Metadata for the Service.
+- `name: mariadb`: The name of the Service.
+- `namespace: svd`: The namespace for the Service.
+- `spec:`: Specification for the Service.
+- `selector:`: Defines how to select the Pods to route traffic to.
+- `app: mariadb`: Selects Pods with the label 'app: mariadb'.
+- `ports:`: List of ports exposed by the Service.
+- `- port: 3306`: The port the Service listens on.
+- `targetPort: 3306`: The port on the Pod to forward traffic to.
 
 ---
 
 ## 4. Backend Layer (`backend.yaml`)
+
 Manages the FastAPI application that serves as the bridge between the frontend and the database.
 
 ```yaml
@@ -365,29 +433,72 @@ spec:
 ### Detailed Line-by-Line Explanation:
 
 #### 1. API Deployment
-- `kind: Deployment`: Manages the rollout and scaling of the backend application.
-- `spec.replicas: 2`: Ensures high availability by running two identical copies of the API.
-- `spec.selector.matchLabels`: Connects the deployment to the Pods it creates.
-- `template.metadata.annotations`:
-  - `prometheus.io/scrape: "true"`: Explicitly tells Prometheus to collect data from these Pods.
-  - `prometheus.io/port: "3000"`: Specifies which port the metrics endpoint lives on.
-  - `prometheus.io/path: "/metrics"`: Defines the URL for the metrics.
-- `template.spec.containers`:
-  - `image: r1035222/ms2_backend:latest`: The custom-built Python/FastAPI image.
-  - `ports.containerPort: 3000`: The internal port the application listens on.
-  - `envFrom.secretRef`: Injects all database credentials from `db-secret`.
-  - `resources`: Ensures the API has enough memory (128Mi-512Mi) and CPU (100m-500m) to perform well.
-  - `livenessProbe`: Periodically checks if the app is still running. If `/api/name` stops responding, Kubernetes will kill and restart the container.
-  - `readinessProbe`: Checks if the app is ready to take web traffic. This prevents users from getting errors while the app is still starting up.
+
+- `apiVersion: apps/v1`: Uses the apps API version.
+- `kind: Deployment`: Identifies this as a Deployment.
+- `metadata:`: Metadata section.
+- `name: api`: Name of the Deployment.
+- `namespace: svd`: Namespace for the Deployment.
+- `spec:`: Specification of the Deployment.
+- `replicas: 2`: Runs two instances for high availability.
+- `selector:`: Label selector for managed Pods.
+- `matchLabels:`: The labels to match.
+- `app: api`: The label key-value pair.
+- `template:`: Template for creating Pods.
+- `metadata:`: Metadata for the Pods.
+- `labels:`: Labels to apply to the Pods.
+- `app: api`: The app label.
+- `annotations:`: Metadata to configure external tools.
+- `prometheus.io/scrape: "true"`: Enables Prometheus scraping.
+- `prometheus.io/port: "3000"`: Port for Prometheus to scrape.
+- `prometheus.io/path: "/metrics"`: Path for metrics.
+- `spec:`: Specification of the Pod contents.
+- `containers:`: List of containers.
+- `- name: api`: Name of the container.
+- `image: r1035222/ms2_backend:latest`: The custom nodejs Docker image.
+- `ports:`: List of ports.
+- `- containerPort: 3000`: Port the container listens on.
+- `envFrom:`: Source of environment variables.
+- `- secretRef:`: References a secret.
+- `name: db-secret`: The secret containing DB credentials.
+- `resources:`: Resource requests and limits.
+- `requests:`: Guaranteed resources.
+- `memory: "128Mi"`: Requests 128 MiB RAM.
+- `cpu: "100m"`: Requests 100m CPU.
+- `limits:`: Maximum allowed resources.
+- `memory: "512Mi"`: Limits RAM to 512 MiB.
+- `cpu: "500m"`: Limits CPU to 500m.
+- `livenessProbe:`: Configuration to check if the app is alive.
+- `httpGet:`: Performs an HTTP GET request.
+- `path: /api/name`: Endpoint to check.
+- `port: 3000`: Port to check.
+- `initialDelaySeconds: 10`: Wait 10s before first check.
+- `periodSeconds: 5`: Check every 5s.
+- `readinessProbe:`: Configuration to check if app is ready for traffic.
+- `httpGet:`: Performs an HTTP GET request.
+- `path: /api/name`: Endpoint to check.
+- `port: 3000`: Port to check.
+- `initialDelaySeconds: 5`: Wait 5s before first check.
+- `periodSeconds: 5`: Check every 5s.
 
 #### 2. API Service
-- `kind: Service`: Provides a single, stable IP address/DNS name (`api`) for the backend.
-- `spec.ports.port: 3000`: The port other components (like the Frontend) use to reach the API.
-- `spec.targetPort: 3000`: Sends that traffic to port 3000 inside the API pods.
+
+- `apiVersion: v1`: Uses the base API version.
+- `kind: Service`: Identifies this as a Service.
+- `metadata:`: Metadata section.
+- `name: api`: Name of the Service.
+- `namespace: svd`: Namespace of the Service.
+- `spec:`: Specification of the Service.
+- `selector:`: Selects Pods to route to.
+- `app: api`: Matches Pods with 'app: api'.
+- `ports:`: Port configuration.
+- `- port: 3000`: Service port.
+- `targetPort: 3000`: Pod port.
 
 ---
 
 ## 5. Frontend Layer (`frontend.yaml`)
+
 Handles the Lighttpd web server and the static UI.
 
 ```yaml
@@ -502,39 +613,95 @@ spec:
 ### Detailed Line-by-Line Explanation:
 
 #### 1. Lighttpd Configuration (`lighttpd-conf`)
-This ConfigMap defines the behavior of our web server.
-- `server.document-root`: Specifies `/var/www/html` as the folder where the server looks for files.
-- `server.port = 80`: The server listens on the standard HTTP port inside the container.
-- `mimetype.assign`: Tells the server how to handle different file types (HTML as text, JS as javascript).
-- `server.error-handler-404 = "/index.html"`: A common "Single Page Application" trick. If someone visits a page that doesn't exist, it sends them back to the main page.
-- `mod_proxy`: Enables the ability to forward requests to another server.
-- `proxy.server = ( "/api" => ... )`: **The most important part**. It routes any request starting with `/api` (like `/api/name`) to our `api` service. This prevents Cross-Origin (CORS) errors because the browser thinks the request is going to the same server.
+
+- `apiVersion: v1`: Uses the base API version.
+- `kind: ConfigMap`: Identifies this as a ConfigMap.
+- `metadata:`: Metadata section.
+- `name: lighttpd-conf`: Name of the ConfigMap.
+- `namespace: svd`: Namespace.
+- `data:`: Data section.
+- `lighttpd.conf: |`: The file content as a multi-line string.
+- `server.document-root = "/var/www/html"`: Sets the root directory for serving files.
+- `server.port = 80`: Listens on port 80.
+- `mimetype.assign = ...`: Maps file extensions to MIME types.
+- `server.error-handler-404 = "/index.html"`: Redirects 404 errors to index.html (SPA routing).
+- `server.modules += ( "mod_proxy" )`: Enables the proxy module.
+- `proxy.server = ( "/api" => ... )`: Configures proxy rules for /api.
+- `( ( "host" => "api", "port" => 3000 ) )`: Forwards /api requests to the 'api' host on port 3000.
 
 #### 2. HTML Content (`html`)
-This ConfigMap stores our website's code directly in Kubernetes.
-- `index.html`:
-  - `<span id="user">`: A placeholder for the user's name.
-  - `fetch("/api/name")`: The Javascript that calls our backend to get the name from the database.
-  - `fetch("/api/container-id")`: Calls the backend to see which Pod handled the request (useful for testing scaling).
+
+- `apiVersion: v1`: Uses the base API version.
+- `kind: ConfigMap`: Identifies this as a ConfigMap.
+- `metadata:`: Metadata section.
+- `name: html`: Name of the ConfigMap.
+- `namespace: svd`: Namespace.
+- `data:`: Data section.
+- `index.html: |-`: The HTML content as a multi-line string.
+- `<!DOCTYPE html>...`: Standard HTML5 doctype and structure.
+- `<span id="user">...`: Placeholder element for the username.
+- `fetch("/api/name")`: JS call to fetch the name from the API.
+- `.then(r => r.json())...`: Parses the JSON response.
+- `fetch("/api/container-id")`: JS call to fetch the container ID.
 
 #### 3. Frontend Deployment
-- `kind: Deployment`: Ensures one instance (`replicas: 1`) of the web server is always running.
-- `image: r1035222/ms2_frontend:latest`: A specialized Docker image that contains the Lighttpd binary.
-- `resources`: Keeps the frontend lightweight by limiting it to 128MB of RAM.
-- `volumeMounts`:
-  - `mountPath: /etc/lighttpd/lighttpd.conf`: We take our custom config and "glue" it over the top of the default one inside the container.
-  - `subPath: lighttpd.conf`: Tells Kubernetes to only replace that specific file, not the whole folder.
-  - `mountPath: /var/www/html`: Overwrites the website folder with our `index.html` from the ConfigMap.
+
+- `apiVersion: apps/v1`: Apps API version.
+- `kind: Deployment`: Identifies as a Deployment.
+- `metadata:`: Metadata section.
+- `name: frontend`: Deployment name.
+- `namespace: svd`: Namespace.
+- `spec:`: Specification.
+- `replicas: 1`: Runs 1 instance.
+- `selector:`: Pod selector.
+- `matchLabels:`: Labels to match.
+- `app: frontend`: The label.
+- `template:`: Pod template.
+- `metadata:`: Pod metadata.
+- `labels:`: Pod labels.
+- `app: frontend`: The label.
+- `spec:`: Pod specification.
+- `containers:`: Containers list.
+- `- name: frontend`: Container name.
+- `image: r1035222/ms2_frontend:latest`: The Docker image.
+- `ports:`: Exposed ports.
+- `- containerPort: 80`: Port 80.
+- `resources:`: Resource limits.
+- `requests:`: Min resources (64Mi RAM, 50m CPU).
+- `limits:`: Max resources (128Mi RAM, 200m CPU).
+- `volumeMounts:`: Volume mounts.
+- `- name: conf`: Mounts 'conf' volume.
+- `mountPath: /etc/lighttpd/lighttpd.conf`: Destination path.
+- `subPath: lighttpd.conf`: Mounts only the specific file.
+- `- name: html`: Mounts 'html' volume.
+- `mountPath: /var/www/html`: Destination path.
+- `volumes:`: Defined volumes.
+- `- name: conf`: Volume named 'conf'.
+- `configMap:`: Backed by ConfigMap.
+- `name: lighttpd-conf`: ConfigMap name.
+- `- name: html`: Volume named 'html'.
+- `configMap:`: Backed by ConfigMap.
+- `name: html`: ConfigMap name.
 
 #### 4. Frontend Service
-The service makes the website accessible within the cluster.
-- `type: ClusterIP`: This makes the service only reachable internally. We rely on the Ingress to provide external access. This is more secure than a NodePort.
-- `port: 8080`: The internal port that other services (like Ingress) use to talk to the frontend.
-- `targetPort: 80`: Routes traffic to the web server's internal port.
+
+- `apiVersion: v1`: Base API version.
+- `kind: Service`: Identifies as a Service.
+- `metadata:`: Metadata section.
+- `name: frontend`: Service name.
+- `namespace: svd`: Namespace.
+- `spec:`: Specification.
+- `type: ClusterIP`: Internal-only service.
+- `selector:`: Pod selector.
+- `app: frontend`: Matches frontend pods.
+- `ports:`: Port config.
+- `- port: 8080`: Service port.
+- `targetPort: 80`: Target pod port.
 
 ---
 
 ## 6. Ingress & TLS (`ingress.yaml`)
+
 Defines how external traffic reaches the frontend and how HTTPS is handled.
 
 ```yaml
@@ -567,23 +734,39 @@ spec:
 ### Detailed Line-by-Line Explanation:
 
 #### 1. Ingress Metadata
-- `kind: Ingress`: The "traffic cop" of the cluster. It routes external domains to internal services.
-- `annotations`:
-  - `cert-manager.io/cluster-issuer`: Instructs Cert-Manager to automatically issue a security certificate for this connection.
+
+- `apiVersion: networking.k8s.io/v1`: Uses the networking API version 1.
+- `kind: Ingress`: Identifies this resource as an Ingress.
+- `metadata:`: Metadata section.
+- `name: ingress`: Name of the Ingress.
+- `namespace: svd`: Namespace.
+- `annotations:`: Annotations for the Ingress controller/Cert-Manager.
+- `cert-manager.io/cluster-issuer: selfsigned-cluster-issuer`: Tells Cert-Manager which issuer to use.
 
 #### 2. Ingress Spec
-- `ingressClassName: traefik`: Tells the cluster that **Traefik** is the controller that will handle this traffic.
-- `tls`:
-  - `hosts`: The domain name to protect with HTTPS.
-  - `secretName: milestone2-tls`: The name of the secret where the SSL/TLS certificate will be stored.
-- `rules.host`: Defines that this rule only applies when someone visits `milestone2.example.com`.
-- `http.paths`:
-  - `path: /`: Matches everything (the root of the site).
-  - `backend.service`: Sends the traffic to the `frontend` service on port `8080`.
+
+- `spec:`: Specification of the Ingress.
+- `ingressClassName: traefik`: Specifies Traefik as the Ingress controller.
+- `tls:`: TLS (HTTPS) configuration.
+- `- hosts:`: List of hosts to secure.
+- `- milestone2.example.com`: The domain name.
+- `secretName: milestone2-tls`: The Secret where certs will be stored.
+- `rules:`: Routing rules.
+- `- host: milestone2.example.com`: Rule applies to this host.
+- `http:`: HTTP routing rules.
+- `paths:`: List of paths.
+- `- path: /`: Matches the root path.
+- `pathType: Prefix`: Matches based on path prefix.
+- `backend:`: Backend to route to.
+- `service:`: Service configuration.
+- `name: frontend`: Name of the target Service.
+- `port:`: Port configuration.
+- `number: 8080`: Target port on the Service.
 
 ---
 
 ## 7. GitOps with Argo CD (`argo-cd.yaml`)
+
 Ensures that the state of your cluster matches the state of your GitHub repository.
 
 ```yaml
@@ -610,27 +793,41 @@ spec:
 ### Detailed Line-by-Line Explanation:
 
 #### 1. Application Metadata
-- `kind: Application`: An Argo CD specific resource that defines a "project" to be synchronized.
-- `metadata.namespace: argocd`: Argo CD resources must live in their own namespace.
+
+- `apiVersion: argoproj.io/v1alpha1`: Uses the Argo CD API version.
+- `kind: Application`: Identifies this as an Argo CD Application.
+- `metadata:`: Metadata section.
+- `name: argocd-app`: Name of the Application.
+- `namespace: argocd`: Namespace (Argo CD lives here).
 
 #### 2. Synchronization Spec
-- `source.repoURL`: The link to your GitHub repository. This is the **Source of Truth**.
-- `source.path: .`: Argo CD will search the root of your repo for any `.yaml` files.
-- `destination.namespace: svd`: Even though the Argo CD config is in the `argocd` namespace, it will deploy your app into the `svd` namespace.
-- `syncPolicy.automated`:
-  - `prune: true`: If you delete a file from GitHub, Argo CD will automatically delete the matching resource from the cluster.
-  - `selfHeal: true`: If someone manually changes something in the cluster (e.g., manually editing a deployment), Argo CD will overwrite it to match what is on GitHub.
+
+- `spec:`: Specification.
+- `project: default`: Belongs to the default Argo CD project.
+- `source:`: Source of the manifest files.
+- `repoURL: "https://github.com/simon-vd/AgroCD.git"`: The git repository URL.
+- `targetRevision: HEAD`: Track the HEAD (latest commit).
+- `path: .`: Search for manifests in the root directory.
+- `destination:`: Deployment destination.
+- `server: "https://kubernetes.default.svc"`: Deploys to the local cluster.
+- `namespace: svd`: Deploys resources into the 'svd' namespace.
+- `syncPolicy:`: Synchronization settings.
+- `automated:`: Automation settings.
+- `prune: true`: Delete resources that are removed from git.
+- `selfHeal: true`: Revert manual changes to match git state.
 
 ---
 
 ## Conclusion
+
 This architecture provides a scalable, secure, and automated environment. By decoupling configuration (ConfigMaps/Secrets) from code (Docker images) and using GitOps (Argo CD), you ensure that your deployment is both professional and easy to maintain.
 
 Key takeaways from this setup:
-1.  **Security First**: Sensitive data is managed via Secrets, and external traffic is secured with TLS certificates managed by Cert-Manager.
-2.  **Scalability**: The Backend layer is configured with multiple replicas, which Kubernetes automatically balances across multiple worker nodes.
-3.  **Modern Networking**: By moving from NodePort to a structured Ingress (Traefik), we allow for domain-based routing and a cleaner external interface.
-4.  **Automation (GitOps)**: Using Argo CD means your cluster's "live" state is always synchronized with your GitHub repository, providing a clear history of changes and preventing "configuration drift."
+
+1. **Security First**: Sensitive data is managed via Secrets, and external traffic is secured with TLS certificates managed by Cert-Manager.
+2. **Scalability**: The Backend layer is configured with multiple replicas, which Kubernetes automatically balances across multiple worker nodes.
+3. **Modern Networking**: By moving from NodePort to a structured Ingress (Traefik), we allow for domain-based routing and a cleaner external interface.
+4. **Automation (GitOps)**: Using Argo CD means your cluster's "live" state is always synchronized with your GitHub repository, providing a clear history of changes and preventing "configuration drift."
 
 This setup serves as a robust foundation for any cloud-native application, demonstrating a high level of technical maturity in Kubernetes management.
 
@@ -640,4 +837,5 @@ This setup serves as a robust foundation for any cloud-native application, demon
 > `![Frontend UI](./assets/frontend_success.png)`
 
 ---
+
 *End of Documentation*
