@@ -1,0 +1,97 @@
+# database.yaml
+---
+# 1. Secret (passwords)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: svd
+type: Opaque
+stringData:
+  DB_HOST: "mariadb"
+  DB_USER: "svduser"
+  DB_PASSWORD: "svdpass"
+  DB_DATABASE: "svddb"
+  MYSQL_ROOT_PASSWORD: "svdroot"
+  MYSQL_DATABASE: "svddb"
+  MYSQL_USER: "svduser"
+  MYSQL_PASSWORD: "svdpass"
+---
+# 2. ConfigMap: init.sql (table + your name)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-init
+  namespace: svd
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS names (name VARCHAR(255));
+    INSERT INTO names (name) VALUES ('Simon Van Dessel');
+---
+# 5. PVC for MariaDB (keeps your name)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mariadb-pvc
+  namespace: svd
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+# 6. MariaDB Deployment + Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb
+  namespace: svd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      containers:
+        - name: mariadb
+          image: mariadb:10.5
+          ports:
+            - containerPort: 3306
+          envFrom:
+            - secretRef:
+                name: db-secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: db-init
+              mountPath: /docker-entrypoint-initdb.d
+            - name: db-storage
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: db-init
+          configMap:
+            name: db-init
+        - name: db-storage
+          persistentVolumeClaim:
+            claimName: mariadb-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: svd
+spec:
+  selector:
+    app: mariadb
+  ports:
+    - port: 3306
+      targetPort: 3306
