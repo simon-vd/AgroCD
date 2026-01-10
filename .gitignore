@@ -1,5 +1,3 @@
-# Kind cluster configuration (local only)
-kind-expose.yaml
 kind.exe
 
 # Docker Compose (local only)

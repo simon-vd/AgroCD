@@ -16,15 +16,12 @@ nodes:
     extraPortMappings:
       - containerPort: 30090
         hostPort: 30090
-        protocol: TCP
       - containerPort: 30900 # Prometheus
         hostPort: 30900
       - containerPort: 31740 # HTTPS
         hostPort: 31740
-        protocol: TCP
       - containerPort: 30890 # ArgoCD
         hostPort: 30890
-        protocol: TCP
   - role: worker
   - role: worker
 ```
