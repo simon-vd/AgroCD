@@ -57,6 +57,7 @@ To set up the infrastructure and deploy the application, follow these steps in o
    kubectl apply -f database.yaml
    kubectl apply -f ingress.yaml
    kubectl apply -f argo-cd.yaml
+   kubectl apply -f prometheus.yaml
    ```
 4. **Finalize and Access**:
    Wait for the Argo CD server to be ready and retrieve the initial admin password:
