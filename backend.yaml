@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: svd-backend:latest # load with:  kind load docker-image svd-backend:latest --name svd
+          image: r1035222/svd-backend:latest # load with:  kind load docker-image svd-backend:latest --name svd
           ports:
             - containerPort: 3000
           envFrom:

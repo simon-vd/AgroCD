@@ -68,7 +68,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: svd-frontend:latest # load with:  kind load docker-image svd-frontend:latest --name svd
+          image: r1035222/svd-frontend:latest # load with:  kind load docker-image svd-frontend:latest --name svd
           ports:
             - containerPort: 80
           resources:

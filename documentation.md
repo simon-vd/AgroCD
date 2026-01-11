@@ -27,7 +27,7 @@ To set up the infrastructure and deploy the application, follow these steps in o
    ```bash
    kind delete cluster --name svd
 
-   kind create cluster --name svd --config kind-expose.yaml
+   kind create cluster --name svd --config ./config/kindconfig.yaml
    
    kind load docker-image r1035222/svd-frontend:latest r1035222/svd-backend:latest --name svd
    ```
@@ -79,7 +79,7 @@ Once the installation is complete, you can access the main application and manag
 | Service                    | Access URL                                                                 | Description                         |
 | :------------------------- | :------------------------------------------------------------------------- | :---------------------------------- |
 | **Main Application** | [https://milestone2.example.com:31740](https://milestone2.example.com:31740/) | Primary project landing page        |
-| **Prometheus**       | [https://milestone2.example.com:30900](https://milestone2.example.com:30900)  | Monitoring and metrics dashboard    |
+| **Prometheus**       | [http://milestone2.example.com:30900](https://milestone2.example.com:30900)  | Monitoring and metrics dashboard    |
 | **Argo CD**          | [https://milestone2.example.com:30890](https://milestone2.example.com:30890)  | GitOps synchronization and delivery |
 
 ---
@@ -862,6 +862,59 @@ CMD ["lighttpd", "-D", "-f", "/etc/lighttpd/lighttpd.conf"]
 - `COPY . /var/www/localhost/htdocs`: Copies the website assets (HTML, JS) into the server's document root.
 - `EXPOSE 80`: Documents that the web server listens on port 80.
 - `CMD ["lighttpd", "-D", "-f", "/etc/lighttpd/lighttpd.conf"]`: Starts Lighttpd in the foreground (`-D`) using our specific config file (`-f`).
+
+---
+
+## 9. Helm Installation Commands
+
+This section details the Helm commands used to set up the cluster infrastructure. Helm is the package manager for Kubernetes, allowing us to install complex applications with a single command.
+
+### 1. Update Repositories
+```bash
+helm repo update
+```
+- **Explanation**: Updates your local list of Helm charts to ensure you can grab the latest versions of the software.
+
+### 2. Cert-Manager Installation
+```bash
+helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set installCRDs=true
+```
+- **`helm install`**: The command to deploy a package.
+- **`cert-manager`**: The name we choose for this specific release.
+- **`jetstack/cert-manager`**: The source chart to install (from the 'jetstack' repository).
+- **`-n cert-manager`**: Installs it into the namespace named `cert-manager`.
+- **`--create-namespace`**: Creates the `cert-manager` namespace if it doesn't already exist.
+- **`--set installCRDs=true`**: crucial flag that installs the Custom Resource Definitions (like `Issuer`, `Certificate`) that cert-manager needs to function.
+
+### 3. Traefik Installation
+```bash
+helm install traefik traefik/traefik -n traefik --create-namespace --set ports.web.nodePort=30090 --set ports.websecure.nodePort=31740 --set service.type=NodePort
+```
+- **`traefik traefik/traefik`**: Installs the Traefik proxy.
+- **`--set ports.web.nodePort=30090`**: Forces the HTTP entry point to be exposed on port `30090` of the execution nodes (matches our `kind-expose.yaml`).
+- **`--set ports.websecure.nodePort=31740`**: Forces the HTTPS entry point to be exposed on port `31740`.
+- **`--set service.type=NodePort`**: Configures the Traefik Service to be accessible externally via the node's IP and the specified ports.
+
+### 4. Prometheus Stack Installation
+```bash
+helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring --create-namespace --set prometheus.service.type=NodePort --set prometheus.service.nodePort=30900
+```
+- **`prometheus-community/kube-prometheus-stack`**: Installs the full monitoring stack (Prometheus, Grafana, Alertmanager).
+- **`-n monitoring --create-namespace`**: Places everything in a dedicated `monitoring` namespace.
+- **`--set prometheus.service.type=NodePort`**: Exposes the Prometheus server API externally.
+- **`--set prometheus.service.nodePort=30900`**: Fixes the external access port to `30900`, allowing you to brose the dashboard locally.
+
+### 5. Argo CD Installation
+```bash
+helm repo add argo https://argoproj.github.io/argo-helm; helm repo update
+
+helm install argocd argo/argo-cd -n argocd --create-namespace --set server.service.type=NodePort --set 'server.service.servicePortHttp=80' --set 'server.service.servicePortHttps=443' --set 'server.service.nodePortHttp=30890' --set 'server.service.nodePortHttps=30891'
+```
+- **`repo add ...`**: Adds the official Argo charts repository to your Helm.
+- **`argo/argo-cd`**: Installs the Argo CD application.
+- **`--set server.service.type=NodePort`**: Exposes the Argo CD web UI externally.
+- **`--set 'server.service.nodePortHttp=30890'`**: Sets the HTTP access port to `30890`.
+- **`--set 'server.service.nodePortHttps=30891'`**: Sets the HTTPS access port (Argo CD often redirects to HTTPS mainly).
 
 ---
 
