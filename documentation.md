@@ -26,8 +26,10 @@ To set up the infrastructure and deploy the application, follow these steps in o
 
    ```bash
    kind delete cluster --name svd
+
    kind create cluster --name svd --config kind-expose.yaml
-   kind load docker-image r1035222/ms2_frontend:latest r1035222/ms2_backend:latest --name svd
+   
+   kind load docker-image r1035222/svd-frontend:latest r1035222/svd-backend:latest --name svd
    ```
 2. **Install Infrastructure via Helm**:
    Update repositories and install the ingress controller, cert-manager, monitoring stack, and Argo CD:
@@ -35,20 +37,13 @@ To set up the infrastructure and deploy the application, follow these steps in o
    ```bash
    helm repo update
 
-   helm install cert-manager jetstack/cert-manager \
-     -n cert-manager --create-namespace \
-     --set installCRDs=true
+   helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set installCRDs=true
 
-   helm install traefik traefik/traefik \
-     -n traefik --create-namespace \
-     --set ports.web.nodePort=30090 \
-     --set ports.websecure.nodePort=31740 \
-     --set service.type=NodePort
+   helm install traefik traefik/traefik -n traefik --create-namespace --set ports.web.nodePort=30090 --set ports.websecure.nodePort=31740 --set service.type=NodePort
 
-   helm install prometheus prometheus-community/kube-prometheus-stack \
-     --namespace monitoring --create-namespace \
-     --set prometheus.service.type=NodePort \
-     --set prometheus
+   helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring --create-namespace --set prometheus.service.type=NodePort --set prometheus.service.nodePort=30900
+
+   helm install argocd argo/argo-cd -n argocd --create-namespace --set server.service.type=NodePort --set 'server.service.servicePortHttp=80' --set 'server.service.servicePortHttps=443' --set 'server.service.nodePortHttp=30890' --set 'server.service.nodePortHttps=30891'
 
    ```
 3. **Apply Application Manifests**:
@@ -391,7 +386,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: r1035222/ms2_backend:latest
+          image: r1035222/svd-backend:latest
           ports:
             - containerPort: 3000
           envFrom:
@@ -455,7 +450,7 @@ spec:
 - `spec:`: Specification of the Pod contents.
 - `containers:`: List of containers.
 - `- name: api`: Name of the container.
-- `image: r1035222/ms2_backend:latest`: The custom nodejs Docker image.
+- `image: r1035222/svd-backend:latest`: The custom nodejs Docker image.
 - `ports:`: List of ports.
 - `- containerPort: 3000`: Port the container listens on.
 - `envFrom:`: Source of environment variables.
@@ -572,7 +567,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: r1035222/ms2_frontend:latest
+          image: r1035222/svd-frontend:latest
           ports:
             - containerPort: 80
           resources:
@@ -663,7 +658,7 @@ spec:
 - `spec:`: Pod specification.
 - `containers:`: Containers list.
 - `- name: frontend`: Container name.
-- `image: r1035222/ms2_frontend:latest`: The Docker image.
+- `image: r1035222/svd-frontend:latest`: The Docker image.
 - `ports:`: Exposed ports.
 - `- containerPort: 80`: Port 80.
 - `resources:`: Resource limits.
@@ -815,6 +810,58 @@ spec:
 - `automated:`: Automation settings.
 - `prune: true`: Delete resources that are removed from git.
 - `selfHeal: true`: Revert manual changes to match git state.
+
+---
+
+## 8. Application Dockerfiles
+
+The custom application images used in this stack (`svd-backend` and `svd-frontend`) are built using the following definitions.
+
+### Backend Dockerfile (`backend/Dockerfile`)
+
+This file builds the Node.js API environment.
+
+```dockerfile
+FROM node:18-alpine
+WORKDIR /usr/src/app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD [ "npm", "start" ]
+```
+
+#### Line-by-Line Explanation:
+
+- `FROM node:18-alpine`: Base image. Uses the lightweight Alpine Linux version of Node.js 18.
+- `WORKDIR /usr/src/app`: Sets the working directory inside the container. All subsequent commands run here.
+- `COPY package*.json ./`: Copies `package.json` (and `package-lock.json` if it exists) to the container. Done before copying code to cache dependencies.
+- `RUN npm install`: Installs the Node.js dependencies defined in `package.json`.
+- `COPY . .`: Copies the rest of the application source code into the container.
+- `EXPOSE 3000`: Documents that the application listens on port 3000.
+- `CMD [ "npm", "start" ]`: The default command to run when the container starts (starts the API server).
+
+### Frontend Dockerfile (`frontend/Dockerfile`)
+
+This file builds the lightweight web server environment.
+
+```dockerfile
+FROM alpine:3.14
+RUN apk add --no-cache lighttpd
+COPY lighttpd.conf /etc/lighttpd/lighttpd.conf
+COPY . /var/www/localhost/htdocs
+EXPOSE 80
+CMD ["lighttpd", "-D", "-f", "/etc/lighttpd/lighttpd.conf"]
+```
+
+#### Line-by-Line Explanation:
+
+- `FROM alpine:3.14`: Base image. Uses a specific, stable version of Alpine Linux.
+- `RUN apk add --no-cache lighttpd`: Installs the `lighttpd` web server using the Alpine package manager (`apk`).
+- `COPY lighttpd.conf /etc/lighttpd/lighttpd.conf`: Copies our custom configuration file into the correct system location.
+- `COPY . /var/www/localhost/htdocs`: Copies the website assets (HTML, JS) into the server's document root.
+- `EXPOSE 80`: Documents that the web server listens on port 80.
+- `CMD ["lighttpd", "-D", "-f", "/etc/lighttpd/lighttpd.conf"]`: Starts Lighttpd in the foreground (`-D`) using our specific config file (`-f`).
 
 ---
 
